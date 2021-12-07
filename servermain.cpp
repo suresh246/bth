@@ -61,9 +61,9 @@ int main(int argc, char *argv[]){
 
   /* Do magic */
   int port=atoi(Destport);
-#ifdef DEBUG  
+  #ifdef DEBUG  
   printf("Host %s, and port %d.\n",Desthost,port);
-#endif
+  #endif
 
   int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
   struct addrinfo hints, *servinfo, *p;
@@ -74,6 +74,10 @@ int main(int argc, char *argv[]){
   char s[INET6_ADDRSTRLEN];
   int rv;
   #define PORT "5000"  // the port users will be connecting to
+  
+    /* Initialize the library, this is needed for this library. */
+  initCalcLib();
+  char *ptr;
 
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
@@ -130,16 +134,19 @@ int main(int argc, char *argv[]){
 
 	printf("server: waiting for connections BINJER...\n");
 	char msg[1500];
-	int MAXSZ=sizeof(msg)-1;
+	char msg_result[1500];
+	int MAXSZ=sizeof(msg);
 
 	int childCnt=0;
-	int readSize;
+	int readSize, numbytes;
 	char command[10];
+	char temp1[20], temp2[20];
 	char optionstring[128];
 	int optionint1;
 	int optionint2;
 
 	while(1) {  // main accept() loop
+	  
 	  sin_size = sizeof(their_addr);
 	  new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
 	  if (new_fd == -1) {
@@ -152,21 +159,237 @@ int main(int argc, char *argv[]){
 		    s, sizeof s);
 	  printf("server: Connection %d from %s\n",childCnt, s);
 
-	  printf("server: Sending welcome \n");
+	  printf("server: Sending TEXT TCP 1.0\n\n\n");
 	  struct sockaddr_in *local_sin=(struct sockaddr_in*)&their_addr;
+
+	  sprintf(msg,"%s\n\n","TEXT TCP 1.0");
+      //Loop through msg buffer
+	  int i;
+	  for (i=0; i<=strlen(msg); i++)
+	  {
+		  printf("%c\n",msg[i]);
+	  }
+      
+      numbytes = send(new_fd, msg, strlen(msg), 0);
+
+      if(numbytes == -1 ){
+         perror("send");
+         exit(1);
+      }
+
+      printf("client (%d bytes) : send complete : %s\n",numbytes,msg);
+      bzero(msg,MAXSZ);
+
 
 	  while(1){
 	    readSize=recv(new_fd,&msg,MAXSZ,0);
 	    printf("Child[%d] (%s:%d): recv(%d) .\n", childCnt,s,ntohs(local_sin->sin_port),readSize);
-	    printf("received message from client:%s\nSize of the message:%d",msg,sizeof(msg));
+	    
+		if (msg[0] == 'O' & msg[1] == 'K' & msg[2] == '\n'){
+			printf("received message from client:%s\nSize of the message:%d\n",msg,strlen(msg));
+			bzero(msg,MAXSZ);
+
+		  ptr=randomType(); // Get a random arithemtic operator. 
+
+          double f1,f2,fresult;
+          int i1,i2,iresult;
+          /*
+            printf("ptr = %p, \t", ptr );
+            printf("string = %s, \n", ptr );
+          */
+          //  printf("Int\t");
+          i1=randomInt();
+          i2=randomInt();
+          //  printf("Float\t");
+          f1=randomFloat();
+          f2=randomFloat();
+
+          printf("  Int Values: %d %d \n",i1,i2);
+          printf("Float Values: %8.8g %8.8g \n",f1,f2);
+		
+		  /* Act differently depending on what operator you got, judge type by first char in string. If 'f' then a float */
+  
+          if(ptr[0]=='f'){
+          /* At this point, ptr holds operator, f1 and f2 the operands. Now we work to determine the reference result. */
+   
+          if(strcmp(ptr,"fadd")==0){
+               fresult=f1+f2;
+          } else if (strcmp(ptr, "fsub")==0){
+               fresult=f1-f2;
+          } else if (strcmp(ptr, "fmul")==0){
+               fresult=f1*f2;
+          } else if (strcmp(ptr, "fdiv")==0){
+               fresult=f1/f2;
+          }
+
+          printf("%s %8.8g %8.8g = %8.8g\n",ptr,f1,f2,fresult);
+		  sprintf(msg, "%s %8.8g %8.8g",ptr, f1, f2);
+		  sprintf(msg_result,"%8.8g\n",fresult);
+		  /*
+		  int j;
+		  for (j=0; j<=strlen(msg); j++ ) {
+            printf("%c", msg[j]);
+		   }*/
+
+		   numbytes = send(new_fd, msg, strlen(msg), 0);
+
+           if(numbytes == -1 ){
+             perror("send");
+             exit(1);
+           }
+
+           printf("client (%d bytes) : send complete : %s",numbytes,msg);
+		   bzero(msg,MAXSZ);
+           readSize=recv(new_fd,&msg,MAXSZ,0);
+	       printf("Child[%d] (%s:%d): recv(%d): .\n", childCnt,s,ntohs(local_sin->sin_port),readSize);
+
+		   for (j=0; j<=strlen(msg_result); j++){
+			  printf("msg_result[%d]:%c hex:%x msg[%d]:%c hex:%x \n",j,msg_result[j],msg_result[j],j,msg[j],msg[j]);
+		    }
+
+
+		    for (j=0; j<=strlen(msg); j++ ) {
+		        if (msg[j] != msg_result[j]) {
+				   bzero(msg, MAXSZ);
+			       printf("ERROR\n");
+				   msg[0] = 'E';
+				   msg[1] = 'R';
+				   msg[2] = 'R';
+				   msg[3] = 'O';
+				   msg[4] = 'R';
+				   msg[5] = '\n';
+				   msg[strlen(msg)] = '\0';
+				   numbytes = send(new_fd, msg, strlen(msg), 0);
+		  
+                if(numbytes == -1 ){
+                    perror("send");
+                    exit(1);
+                    }
+
+                printf("client (%d bytes) : send complete : %s",numbytes,msg);
+		        bzero(msg,MAXSZ);
+				exit(1);
+
+		        }
+		        bzero(msg, MAXSZ);
+				msg[0] = 'O';
+				msg[1] = 'K';
+				msg[2] = '\n';
+				msg[strlen(msg)] = '\0';
+				numbytes = send(new_fd, msg, strlen(msg), 0);
+		  
+                if(numbytes == -1 ){
+                     perror("send");
+                     exit(1);
+                    }
+                printf("client (%d bytes) : send complete : %s",numbytes,msg);
+		        bzero(msg,MAXSZ);
+
+		}
+		bzero(temp1,sizeof(temp1));
+		bzero(temp2,sizeof(temp2));
+		bzero(msg,sizeof(msg));
+		bzero(msg_result,sizeof(MAXSZ));
+
+        } else {
+          if(strcmp(ptr,"add")==0){
+             iresult=i1+i2;
+        } else if (strcmp(ptr, "sub")==0){
+            iresult=i1-i2;
+        } else if (strcmp(ptr, "mul")==0){
+            iresult=i1*i2;
+        } else if (strcmp(ptr, "div")==0){
+          iresult=i1/i2;
+        }
+		  
+        printf("%s %d %d = %d \n",ptr,i1,i2,iresult);
+		sprintf(msg,"%s %d %d",ptr,i1,i2);
+		sprintf(msg_result,"%d\n",iresult);
+
+		int j;
+        /*
+		for (j=0; j<=strlen(msg); j++ ) {
+            printf("msg[%d]: %c: Hex:%x",j,msg[j],msg[j]);
+		}*/
+
+		numbytes = send(new_fd, msg, strlen(msg), 0);
+		  
+        if(numbytes == -1 ){
+             perror("send");
+             exit(1);
+        }
+
+        printf("client (%d bytes) : send complete : %s",numbytes,msg);
+		bzero(msg,MAXSZ);
+        readSize=recv(new_fd,&msg,MAXSZ,0);
+	    printf("Child[%d] (%s:%d): recv(%d): .\n", childCnt,s,ntohs(local_sin->sin_port),readSize);
+        /*
+		for (j=0; j<=10; j++){
+			printf("msg_result[%d]:%c hex:%x msg[%d]:%c hex:%x \n",j,msg_result[j],msg_result[j],j,msg[j],msg[j]);
+		}*/
+
+		/*
+		  for (j=0; j<strlen(msg); j++){
+			  printf("msg[%d]:%c hex:%x \n",j,msg[j],msg[j]);
+		}*/
+
+		//msg[strlen(msg)] = '\0'; 
+        for (j = 0; j <= strlen(msg); j++ ){
+			  if (msg[j] != msg_result[j]) {
+				  
+				bzero(msg, MAXSZ);
+				msg[0] = 'E';
+				msg[1] = 'R';
+				msg[2] = 'R';
+				msg[3] = 'O';
+				msg[4] = 'R';
+				msg[5] = '\n';
+				msg[strlen(msg)] = '\0';
+
+				numbytes = send(new_fd, msg, strlen(msg), 0);
+		  
+                if(numbytes == -1 ){
+                     perror("send");
+                     exit(1);
+                    }
+
+                printf("client (%d bytes) : send complete : %s",numbytes,msg);
+		        bzero(msg,MAXSZ);
+				exit(1);
+		    }
+                //bzero(msg,MAXSZ);
+				msg[0] = 'O';
+				msg[1] = 'K';
+				msg[2] = '\n';
+				msg[strlen(msg)] = '\0';
+
+				numbytes = send(new_fd, msg, strlen(msg), 0);
+		  
+                if(numbytes == -1 ){
+                     perror("send");
+                     exit(1);
+                    }
+
+                printf("client (%d bytes) : send complete : %s",numbytes,msg);
+		        bzero(msg,MAXSZ);
+	
+		}
+		bzero(temp1,sizeof(temp1));
+		bzero(temp2,sizeof(temp2));
+		bzero(msg,sizeof(MAXSZ));
+		bzero(msg_result,sizeof(MAXSZ));
+        }
+
+		}
 	    if(readSize==0){
 	      printf("Child [%d] died.\n",childCnt);
 	      close(new_fd);
 	      break;
 	    }
 	    msg[readSize]=0;
-		  }
-
+		}
+		continue;
 	}
+	
 return 0;
 }
