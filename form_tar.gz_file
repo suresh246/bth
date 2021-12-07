@@ -1,0 +1,4 @@
+cd /temp/
+ls file_folder_path/
+tar -zcvf 172318-filename.tar.gz file_folder_path/
+ls -la 172318-filename.tar.gz
